@@ -757,5 +757,42 @@ namespace System.IO
         {
             return DriveInfoInternal.GetLogicalDrives();
         }
+
+        public override FileSystemEntryType LookupEntry(string path)
+        {
+            var data = new Interop.Kernel32.WIN32_FILE_ATTRIBUTE_DATA();
+            int result = FillAttributeInfo(path, ref data, false, true);
+            switch (result)
+            {
+                case Interop.Errors.ERROR_SUCCESS:
+                    break;
+                case Interop.Errors.ERROR_ACCESS_DENIED:
+                    return FileSystemEntryType.AccessDenied;
+                case Interop.Errors.ERROR_PATH_NOT_FOUND:
+                case Interop.Errors.ERROR_BAD_PATHNAME:
+                    return FileSystemEntryType.InvalidSubpath;
+                case Interop.Errors.ERROR_FILE_NOT_FOUND:
+                    return FileSystemEntryType.NotFound;
+                case Interop.Errors.ERROR_NOT_READY:
+                    return FileSystemEntryType.DeviceNotReady;
+                case Interop.Errors.ERROR_INVALID_DRIVE:
+                    return FileSystemEntryType.InvalidDrive;
+                case Interop.Errors.ERROR_FILENAME_EXCED_RANGE:
+                    return FileSystemEntryType.PathTooLong;
+                default:
+                    return FileSystemEntryType.UnknownError;
+            }
+
+            // if we get here, we were successful in locating the entry.
+            var isDirectory = (data.fileAttributes & Interop.Kernel32.FileAttributes.FILE_ATTRIBUTE_DIRECTORY) != 0;
+            if (isDirectory)
+                return FileSystemEntryType.Directory;
+
+            var isSymLink = (data.fileAttributes & Interop.Kernel32.FileAttributes.FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+            if (isSymLink)
+                return FileSystemEntryType.SymLink;
+
+            return FileSystemEntryType.File;
+        }
     }
 }

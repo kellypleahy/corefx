@@ -47,5 +47,8 @@ namespace System.IO
 
         // Volume
         public abstract string[] GetLogicalDrives();
+
+        // FileSystemEntry
+        public abstract FileSystemEntryType LookupEntry(string path);
     }
 }

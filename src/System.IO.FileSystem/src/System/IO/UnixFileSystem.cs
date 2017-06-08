@@ -416,7 +416,19 @@ namespace System.IO
         {
             Debug.Assert(fileType == Interop.Sys.FileTypes.S_IFREG || fileType == Interop.Sys.FileTypes.S_IFDIR);
 
-            Interop.Sys.FileStatus fileinfo;
+            if (!GetFileSystemEntry(fullPath, out errorInfo, out Interop.Sys.FileStatus fileinfo))
+                return false;
+
+            // Something exists at this path.  If the caller is asking for a directory, return true if it's
+            // a directory and false for everything else.  If the caller is asking for a file, return false for
+            // a directory and true for everything else.
+            return
+                (fileType == Interop.Sys.FileTypes.S_IFDIR) ==
+                ((fileinfo.Mode & Interop.Sys.FileTypes.S_IFMT) == Interop.Sys.FileTypes.S_IFDIR);
+        }
+
+        private static bool GetFileSystemEntry(string fullPath, out Interop.ErrorInfo errorInfo, out Interop.Sys.FileStatus fileinfo)
+        {
             errorInfo = default(Interop.ErrorInfo);
 
             // First use stat, as we want to follow symlinks.  If that fails, it could be because the symlink
@@ -429,12 +441,7 @@ namespace System.IO
                 return false;
             }
 
-            // Something exists at this path.  If the caller is asking for a directory, return true if it's
-            // a directory and false for everything else.  If the caller is asking for a file, return false for
-            // a directory and true for everything else.
-            return
-                (fileType == Interop.Sys.FileTypes.S_IFDIR) ==
-                ((fileinfo.Mode & Interop.Sys.FileTypes.S_IFMT) == Interop.Sys.FileTypes.S_IFDIR);
+            return true;
         }
 
         public override IEnumerable<string> EnumeratePaths(string path, string searchPattern, SearchOption searchOption, SearchTarget searchTarget)
@@ -766,6 +773,47 @@ namespace System.IO
         public override string[] GetLogicalDrives()
         {
             return DriveInfoInternal.GetLogicalDrives();
+        }
+
+        public override FileSystemEntryType LookupEntry(string path)
+        {
+            var found = GetFileSystemEntry(PathHelpers.TrimEndingDirectorySeparator(path), out Interop.ErrorInfo errorInfo, out Interop.Sys.FileStatus fileStatus);
+            if (found)
+            {
+                switch (fileStatus.Mode & Interop.Sys.FileTypes.S_IFMT)
+                {
+                    case Interop.Sys.FileTypes.S_IFDIR:
+                        return FileSystemEntryType.Directory;
+                    case Interop.Sys.FileTypes.S_IFREG:
+                        return FileSystemEntryType.File;
+                    case Interop.Sys.FileTypes.S_IFLNK:
+                        return FileSystemEntryType.InvalidSymLink; // the only way we should get this is if it is a SymLink that couldn't be followed.
+                    case Interop.Sys.FileTypes.S_IFBLK:
+                        return FileSystemEntryType.BlockDevice;
+                    case Interop.Sys.FileTypes.S_IFCHR:
+                        return FileSystemEntryType.CharDevice;
+                    case Interop.Sys.FileTypes.S_IFIFO:
+                        return FileSystemEntryType.Pipe;
+                    case Interop.Sys.FileTypes.S_IFSOCK:
+                        return FileSystemEntryType.Socket;
+                    default:
+                        return FileSystemEntryType.Unrecognized;
+                }
+            }
+
+            switch (errorInfo.Error)
+            {
+                case Interop.Error.EACCES:
+                    return FileSystemEntryType.AccessDenied;
+                case Interop.Error.ELOOP:
+                    return FileSystemEntryType.TooManyLinks;
+                case Interop.Error.ENAMETOOLONG:
+                    return FileSystemEntryType.PathTooLong;
+                case Interop.Error.ENOENT:
+                    return FileSystemEntryType.NotFound;
+                case Interop.Error.ENOTDIR:
+                    return FileSystemEntryType.InvalidSubpath;
+            }
         }
     }
 }

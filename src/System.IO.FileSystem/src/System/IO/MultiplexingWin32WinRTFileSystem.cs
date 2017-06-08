@@ -168,6 +168,11 @@ namespace System.IO
             return _winRTFileSystem.GetLogicalDrives();
         }
 
+        public override FileSystemEntryType LookupEntry(string path)
+        {
+            return Select(path).LookupEntry(path);
+        }
+
         private static bool ShouldUseWinRT(string fullPath, bool isCreate)
         {
             // The purpose of this method is to determine if we can access a path

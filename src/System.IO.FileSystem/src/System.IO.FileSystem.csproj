@@ -28,6 +28,7 @@
     <Compile Include="System\IO\File.cs" />
     <Compile Include="System\IO\FileInfo.cs" />
     <Compile Include="System\IO\FileSystem.cs" />
+    <Compile Include="System\IO\FileSystemEntryType.cs" />
     <Compile Include="System\IO\FileSystemInfo.cs" />
     <Compile Include="System\IO\IFileSystemObject.cs" />
     <Compile Include="System\IO\Iterator.cs" />

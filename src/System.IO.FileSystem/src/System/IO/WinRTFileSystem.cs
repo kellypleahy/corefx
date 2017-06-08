@@ -751,6 +751,25 @@ namespace System.IO
             return DriveInfoInternal.GetLogicalDrives();
         }
 
+        public override FileSystemEntryType LookupEntry(string path)
+        {
+            try
+            {
+                var attributes = GetAttributes(path);
+                if ((attributes & FileAttributes.Directory) == FileAttributes.Directory)
+                    return FileSystemEntryType.Directory;
+                return FileSystemEntryType.File;
+            }
+            catch(UnauthorizedAccessException)
+            {
+                return FileSystemEntryType.AccessDenied;
+            }
+            catch
+            {
+                return FileSystemEntryType.UnknownError;
+            }
+        }
+
         #region Task Utility
         private static void EnsureBackgroundThread()
         {
